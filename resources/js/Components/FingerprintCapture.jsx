@@ -57,6 +57,8 @@ export default function FingerprintCapture({ citizen }) {
                 This is a simulation. You must integrate your fingerprint scanner's SDK here.
             </p>
             {errors.fingerprint_data && <div className="text-red-500 mt-2">{errors.fingerprint_data}</div>}
+            {errors.duplicate && <div className="text-red-500 mt-2 font-bold">{errors.duplicate}</div>}
+            {errors.api_error && <div className="text-red-500 mt-2">{errors.api_error}</div>}
         </div>
     );
 }

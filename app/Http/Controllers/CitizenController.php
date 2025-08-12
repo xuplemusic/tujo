@@ -6,6 +6,8 @@ use App\Models\Citizen;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Request as FacadesRequest;
 use Intervention\Image\Facades\Image;
 
 class CitizenController extends Controller
@@ -16,8 +18,18 @@ class CitizenController extends Controller
     public function index()
     {
         $this->authorize('viewAny', Citizen::class);
+
+        $query = Citizen::query();
+
+        if (FacadesRequest::input('search')) {
+            $search = FacadesRequest::input('search');
+            $query->where('name', 'like', "%{$search}%")
+                  ->orWhere('lga', 'like', "%{$search}%");
+        }
+
         return Inertia::render('Citizen/Index', [
-            'citizens' => Citizen::all(),
+            'citizens' => $query->paginate(10)->withQueryString(),
+            'filters' => FacadesRequest::only(['search']),
         ]);
     }
 
@@ -105,12 +117,29 @@ use Illuminate\Support\Facades\Http;
     {
         $request->validate(['image' => 'required|image']);
 
+        $apiUrl = config('biometrics.api_url');
+        if ($apiUrl) {
+            // Step 1: Check for duplicates before doing anything else
+            $imageFile = $request->file('image');
+            $duplicateCheckResponse = Http::attach(
+                'face_image', $imageFile->get(), $imageFile->getClientOriginalName()
+            )->post("{$apiUrl}/check-duplicate-face");
+
+            if ($duplicateCheckResponse->failed()) {
+                return back()->withErrors(['api_error' => 'The duplicate check service failed.']);
+            }
+
+            if ($duplicateCheckResponse->json('is_duplicate')) {
+                $matchedId = $duplicateCheckResponse->json('matched_citizen_id');
+                return back()->withErrors(['duplicate' => "A citizen with similar biometric data already exists (ID: {$matchedId})."]);
+            }
+        }
+
         // Store the image locally first
         $path = $request->file('image')->store('citizens/faces', 'public');
         $citizen->update(['face_image_path' => $path]);
 
-        // Now, call the external biometric API
-        $apiUrl = config('biometrics.api_url');
+        // Now, call the external biometric API for verification/storage
         if (!$apiUrl) {
             return back()->with('info', 'Face image saved, but biometric API is not configured.');
         }
@@ -125,10 +154,6 @@ use Illuminate\Support\Facades\Http;
             return back()->withErrors(['api_error' => 'The biometric service failed to process the image.']);
         }
 
-        // Assuming the API returns a JSON response with a unique identifier or embedding
-        // $biometricId = $response->json('biometric_id');
-        // $citizen->update(['face_embedding' => $biometricId]);
-
         return back()->with('success', 'Face image uploaded and sent to biometric service.');
     }
 
@@ -140,10 +165,27 @@ use Illuminate\Support\Facades\Http;
         $request->validate(['fingerprint_data' => 'required|string']);
 
         $fingerprintTemplate = $request->input('fingerprint_data');
+
+        $apiUrl = config('biometrics.api_url');
+        if ($apiUrl) {
+            // Step 1: Check for duplicates
+            $duplicateCheckResponse = Http::post("{$apiUrl}/check-duplicate-fingerprint", [
+                'fingerprint_template' => $fingerprintTemplate,
+            ]);
+
+            if ($duplicateCheckResponse->failed()) {
+                return back()->withErrors(['api_error' => 'The duplicate check service failed.']);
+            }
+
+            if ($duplicateCheckResponse->json('is_duplicate')) {
+                $matchedId = $duplicateCheckResponse->json('matched_citizen_id');
+                return back()->withErrors(['duplicate' => "A citizen with similar biometric data already exists (ID: {$matchedId})."]);
+            }
+        }
+
         $citizen->update(['fingerprint_template' => $fingerprintTemplate]);
 
-        // Now, call the external biometric API
-        $apiUrl = config('biometrics.api_url');
+        // Now, call the external biometric API for verification/storage
         if (!$apiUrl) {
             return back()->with('info', 'Fingerprint template saved, but biometric API is not configured.');
         }
@@ -157,9 +199,46 @@ use Illuminate\Support\Facades\Http;
             return back()->withErrors(['api_error' => 'The biometric service failed to process the fingerprint.']);
         }
 
-        // $biometricId = $response->json('biometric_id');
-        // $citizen->update(['fingerprint_embedding' => $biometricId]);
-
         return back()->with('success', 'Fingerprint template stored and sent to biometric service.');
+    }
+
+    /**
+     * Export all citizens as a CSV file.
+     */
+    public function exportCsv()
+    {
+        $this->authorize('viewAny', Citizen::class); // Or a more specific export policy
+
+        $fileName = 'citizens.csv';
+        $citizens = Citizen::all();
+
+        $headers = array(
+            "Content-type"        => "text/csv",
+            "Content-Disposition" => "attachment; filename=$fileName",
+            "Pragma"              => "no-cache",
+            "Cache-Control"       => "must-revalidate, post-check=0, pre-check=0",
+            "Expires"             => "0"
+        );
+
+        $columns = array('ID', 'Name', 'Date of Birth', 'LGA', 'Created At');
+
+        $callback = function() use($citizens, $columns) {
+            $file = fopen('php://output', 'w');
+            fputcsv($file, $columns);
+
+            foreach ($citizens as $citizen) {
+                fputcsv($file, array(
+                    $citizen->id,
+                    $citizen->name,
+                    $citizen->date_of_birth,
+                    $citizen->lga,
+                    $citizen->created_at
+                ));
+            }
+
+            fclose($file);
+        };
+
+        return response()->stream($callback, 200, $headers);
     }
 }

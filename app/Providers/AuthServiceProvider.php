@@ -4,6 +4,10 @@ namespace App\Providers;
 
 use App\Models\Citizen;
 use App\Policies\CitizenPolicy;
+use App\Models\Audit;
+use App\Models\User;
+use App\Policies\AuditPolicy;
+use App\Policies\UserPolicy;
 use Illuminate\Foundation\Support\Providers\AuthServiceProvider as ServiceProvider;
 use Illuminate\Support\Facades\Gate;
 
@@ -16,6 +20,8 @@ class AuthServiceProvider extends ServiceProvider
      */
     protected $policies = [
         Citizen::class => CitizenPolicy::class,
+        User::class => UserPolicy::class,
+        Audit::class => AuditPolicy::class,
     ];
 
     /**

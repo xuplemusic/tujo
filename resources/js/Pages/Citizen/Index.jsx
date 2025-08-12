@@ -1,8 +1,20 @@
 import React from 'react';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
-import { Head, Link } from '@inertiajs/react';
+import { Head, Link, useForm } from '@inertiajs/react';
+import Pagination from '@/Components/Pagination';
 
-export default function Index({ auth, citizens }) {
+export default function Index({ auth, citizens, filters }) {
+    const { data, setData, get } = useForm({
+        search: filters.search || '',
+    });
+
+    function submit(e) {
+        e.preventDefault();
+        get(route('citizens.index'), {
+            preserveState: true,
+        });
+    }
+
     return (
         <AuthenticatedLayout
             auth={auth}
@@ -16,15 +28,42 @@ export default function Index({ auth, citizens }) {
                         <div className="p-6 bg-white border-b border-gray-200">
                             <div className="flex items-center justify-between mb-6">
                                 <h1 className="text-2xl font-bold">Citizens</h1>
-                                {(auth.user.role === 'admin' || auth.user.role === 'registrar') && (
-                                    <Link
-                                        className="px-6 py-2 text-white bg-green-500 rounded-md focus:outline-none"
-                                        href={route('citizens.create')}
-                                    >
-                                        Create Citizen
-                                    </Link>
-                                )}
+                                <div className="space-x-2">
+                                    {auth.user.role === 'admin' && (
+                                        <a href={route('citizens.export.csv')} className="px-6 py-2 text-white bg-gray-500 rounded-md focus:outline-none">
+                                            Export CSV
+                                        </a>
+                                    )}
+                                    {(auth.user.role === 'admin' || auth.user.role === 'registrar') && (
+                                        <Link
+                                            className="px-6 py-2 text-white bg-green-500 rounded-md focus:outline-none"
+                                            href={route('citizens.create')}
+                                        >
+                                            Create Citizen
+                                        </Link>
+                                    )}
+                                </div>
                             </div>
+
+                            <form onSubmit={submit} className="mb-6">
+                                <div className="flex items-center">
+                                    <input
+                                        type="text"
+                                        name="search"
+                                        value={data.search}
+                                        onChange={(e) => setData('search', e.target.value)}
+                                        className="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline"
+                                        placeholder="Search by name or LGA..."
+                                    />
+                                    <button
+                                        type="submit"
+                                        className="ml-3 px-6 py-2 text-white bg-indigo-500 rounded-md focus:outline-none"
+                                    >
+                                        Search
+                                    </button>
+                                </div>
+                            </form>
+
                             <table className="table-fixed w-full">
                                 <thead>
                                     <tr className="bg-gray-100">
@@ -36,7 +75,7 @@ export default function Index({ auth, citizens }) {
                                     </tr>
                                 </thead>
                                 <tbody>
-                                    {citizens.map(({ id, name, date_of_birth, lga }) => (
+                                    {citizens.data.map(({ id, name, date_of_birth, lga }) => (
                                         <tr key={id}>
                                             <td className="border px-4 py-2">{id}</td>
                                             <td className="border px-4 py-2">{name}</td>
@@ -75,6 +114,9 @@ export default function Index({ auth, citizens }) {
                                     ))}
                                 </tbody>
                             </table>
+                            <div className="mt-6">
+                                <Pagination links={citizens.links} />
+                            </div>
                         </div>
                     </div>
                 </div>

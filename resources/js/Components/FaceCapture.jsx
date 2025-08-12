@@ -53,6 +53,8 @@ export default function FaceCapture({ citizen }) {
                 </button>
             </div>
             {errors.image && <div className="text-red-500 mt-2">{errors.image}</div>}
+            {errors.duplicate && <div className="text-red-500 mt-2 font-bold">{errors.duplicate}</div>}
+            {errors.api_error && <div className="text-red-500 mt-2">{errors.api_error}</div>}
         </div>
     );
 }

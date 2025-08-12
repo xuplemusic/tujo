@@ -26,9 +26,20 @@ Route::get('/dashboard', DashboardController::class)
     ->middleware(['auth', 'role:admin'])
     ->name('dashboard');
 
+use App\Http\Controllers\AuditController;
+use App\Http\Controllers\UserController;
+
 Route::resource('citizens', CitizenController::class)
     ->middleware(['auth']);
 
+Route::get('audits', [AuditController::class, 'index'])
+    ->middleware(['auth', 'role:admin'])
+    ->name('audits.index');
+
+Route::resource('users', UserController::class)
+    ->middleware(['auth', 'role:admin']);
+
+Route::get('citizens/export/csv', [CitizenController::class, 'exportCsv'])->name('citizens.export.csv');
 Route::post('citizens/{citizen}/face', [CitizenController::class, 'storeFace'])->name('citizens.face.store');
 Route::post('citizens/{citizen}/fingerprint', [CitizenController::class, 'storeFingerprint'])->name('citizens.fingerprint.store');
 
