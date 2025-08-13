@@ -108,98 +108,61 @@ class CitizenController extends Controller
         return redirect()->route('citizens.index')->with('success', 'Citizen deleted successfully.');
     }
 
-use Illuminate\Support\Facades\Http;
-
     /**
-     * Store the face image and call the biometric API.
+     * Store the face image and call the Clarifai API for verification.
      */
     public function storeFace(Request $request, Citizen $citizen)
     {
         $request->validate(['image' => 'required|image']);
 
-        $apiUrl = config('biometrics.api_url');
-        if ($apiUrl) {
-            // Step 1: Check for duplicates before doing anything else
-            $imageFile = $request->file('image');
-            $duplicateCheckResponse = Http::attach(
-                'face_image', $imageFile->get(), $imageFile->getClientOriginalName()
-            )->post("{$apiUrl}/check-duplicate-face");
+        // IMPORTANT: This implementation is a "best guess" based on the Clarifai
+        // Quick Start guide, as the detailed HTTP API documentation was not accessible.
+        // The user must verify the endpoint URL, model ID, and request payload format.
 
-            if ($duplicateCheckResponse->failed()) {
-                return back()->withErrors(['api_error' => 'The duplicate check service failed.']);
-            }
+        $pat = config('clarifai.pat');
+        $userId = config('clarifai.user_id');
+        $appId = config('clarifai.app_id');
+        $modelId = config('clarifai.model_id');
 
-            if ($duplicateCheckResponse->json('is_duplicate')) {
-                $matchedId = $duplicateCheckResponse->json('matched_citizen_id');
-                return back()->withErrors(['duplicate' => "A citizen with similar biometric data already exists (ID: {$matchedId})."]);
-            }
+        if (!$pat || !$userId || !$appId) {
+            return back()->withErrors(['api_error' => 'Clarifai API is not configured. Please check your .env file.']);
         }
 
-        // Store the image locally first
+        // 1. Store the image locally
         $path = $request->file('image')->store('citizens/faces', 'public');
         $citizen->update(['face_image_path' => $path]);
 
-        // Now, call the external biometric API for verification/storage
-        if (!$apiUrl) {
-            return back()->with('info', 'Face image saved, but biometric API is not configured.');
-        }
+        // 2. Prepare the data for the Clarifai API
+        $imageData = base64_encode(file_get_contents($request->file('image')->getRealPath()));
+        $apiUrl = "https://api.clarifai.com/v2/users/{$userId}/apps/{$appId}/models/{$modelId}/outputs";
 
-        $response = Http::attach(
-            'face_image', file_get_contents(storage_path("app/public/{$path}")), basename($path)
-        )->post("{$apiUrl}/verify-face", [
-            'citizen_id' => $citizen->id,
+        // 3. Call the Clarifai API
+        $response = Http::withHeaders([
+            'Authorization' => 'Key ' . $pat,
+            'Content-Type' => 'application/json',
+        ])->post($apiUrl, [
+            'inputs' => [
+                [
+                    'data' => [
+                        'image' => [
+                            'base64' => $imageData
+                        ]
+                    ]
+                ]
+            ]
         ]);
 
         if ($response->failed()) {
-            return back()->withErrors(['api_error' => 'The biometric service failed to process the image.']);
+            return back()->withErrors(['api_error' => 'Clarifai API request failed: ' . $response->reason()]);
         }
 
-        return back()->with('success', 'Face image uploaded and sent to biometric service.');
-    }
+        // 4. TODO for user: Process the response.
+        // The response will contain data about the detected face(s), including bounding boxes
+        // and potentially embeddings. You would typically store this data or use it for
+        // duplicate checking by calling a "search" endpoint.
+        // For now, we just confirm the API call was successful.
 
-    /**
-     * Store the fingerprint template and call the biometric API.
-     */
-    public function storeFingerprint(Request $request, Citizen $citizen)
-    {
-        $request->validate(['fingerprint_data' => 'required|string']);
-
-        $fingerprintTemplate = $request->input('fingerprint_data');
-
-        $apiUrl = config('biometrics.api_url');
-        if ($apiUrl) {
-            // Step 1: Check for duplicates
-            $duplicateCheckResponse = Http::post("{$apiUrl}/check-duplicate-fingerprint", [
-                'fingerprint_template' => $fingerprintTemplate,
-            ]);
-
-            if ($duplicateCheckResponse->failed()) {
-                return back()->withErrors(['api_error' => 'The duplicate check service failed.']);
-            }
-
-            if ($duplicateCheckResponse->json('is_duplicate')) {
-                $matchedId = $duplicateCheckResponse->json('matched_citizen_id');
-                return back()->withErrors(['duplicate' => "A citizen with similar biometric data already exists (ID: {$matchedId})."]);
-            }
-        }
-
-        $citizen->update(['fingerprint_template' => $fingerprintTemplate]);
-
-        // Now, call the external biometric API for verification/storage
-        if (!$apiUrl) {
-            return back()->with('info', 'Fingerprint template saved, but biometric API is not configured.');
-        }
-
-        $response = Http::post("{$apiUrl}/verify-fingerprint", [
-            'citizen_id' => $citizen->id,
-            'fingerprint_template' => $fingerprintTemplate,
-        ]);
-
-        if ($response->failed()) {
-            return back()->withErrors(['api_error' => 'The biometric service failed to process the fingerprint.']);
-        }
-
-        return back()->with('success', 'Fingerprint template stored and sent to biometric service.');
+        return back()->with('success', 'Face image uploaded and successfully processed by Clarifai.');
     }
 
     /**

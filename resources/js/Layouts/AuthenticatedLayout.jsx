@@ -36,10 +36,16 @@ export default function AuthenticatedLayout({ auth, header, children }) {
 
                         <div className="hidden sm:flex sm:items-center sm:ml-6">
                             <div className="ml-3 relative">
-                                {auth?.user ? `Welcome, ${auth.user.name} (${auth.user.role})` : 'Guest'}
-                                <Link href={route('logout')} method="post" as="button" className="ml-4 text-sm text-gray-700 underline">
-                                    Log Out
-                                </Link>
+                                {auth?.user ? (
+                                    <>
+                                        <Link href={route('profile')} className="mr-4 text-sm text-gray-700 underline">
+                                            {`Welcome, ${auth.user.name} (${auth.user.role})`}
+                                        </Link>
+                                        <Link href={route('logout')} method="post" as="button" className="text-sm text-gray-700 underline">
+                                            Log Out
+                                        </Link>
+                                    </>
+                                ) : 'Guest'}
                             </div>
                         </div>
                     </div>

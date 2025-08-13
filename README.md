@@ -112,26 +112,54 @@ If this URL is not set, the application will still save the captured images and 
 
 The core CRUD functionality is in place, but the biometric verification features require further integration with third-party services and hardware.
 
-### Face Verification
+### Face Verification (Clarifai)
 
-The frontend component for capturing a face image is located at `resources/js/Components/FaceCapture.jsx`. It uses `react-webcam` to access the camera and upload a photo.
+The application has been integrated with the [Clarifai AI Platform](https://clarifai.com/) for face verification. The logic is implemented in the `storeFace` method of the `CitizenController`.
 
-The backend logic to handle this photo is in `app/Http/Controllers/CitizenController.php`, within the `storeFace` method.
+**Note:** The implementation is a "best guess" based on Clarifai's Quick Start guides, as the detailed HTTP API documentation was inaccessible during development. You may need to adjust the endpoint path or request payload after consulting the official documentation.
 
-**Your Task:**
-1.  Choose a face recognition service (e.g., AWS Rekognition, Azure Face API, or an open-source library like `face-recognition`).
-2.  In the `storeFace` method, after the image is saved, send the image to your chosen service to get a facial embedding (a unique vector representation of the face).
-3.  You should add a new column to the `citizens` table (e.g., `face_embedding` of type `TEXT` or `JSON`) to store this value.
-4.  Modify the controller to save this embedding to the database. This embedding is what you will use for searching and matching, not the raw image.
+#### Configuration Steps:
+1.  **Sign up for Clarifai:** Create a free account on the Clarifai website.
+2.  **Create an Application:** Inside the Clarifai platform, create a new application. This will give you an **App ID**.
+3.  **Find Your User ID:** Your **User ID** is available in your account settings.
+4.  **Create a Personal Access Token (PAT):** In your account's security settings, create a new Personal Access Token. This will be your API key.
+5.  **Find a Model:** Clarifai has many pre-built models. Browse the "Community" section to find a suitable model for face detection or recognition. A good starting point might be the `face-detection` model. Copy the **Model ID**.
+6.  **Update Your `.env` File:** Add the following keys to your `.env` file with the values you obtained:
+    ```env
+    CLARIFAI_PAT=your_personal_access_token
+    CLARIFAI_USER_ID=your_user_id
+    CLARIFAI_APP_ID=your_app_id
+    CLARIFAI_MODEL_ID=the_model_id_you_chose
+    ```
 
-### Fingerprint Verification
+Once configured, the application will send captured face images to the Clarifai API for processing. You can then extend the functionality to store the results (like face embeddings) for duplicate checking.
 
-This feature is highly dependent on the specific fingerprint scanner hardware you choose.
+## API Usage
 
-The frontend placeholder component is at `resources/js/Components/FingerprintCapture.jsx`. The backend placeholder method is `storeFingerprint` in `CitizenController`.
+This application provides a secure, token-based API to access citizen data. This is useful for integrating with other government services.
 
-**Your Task:**
-1.  Select a fingerprint scanner that provides a Web SDK.
-2.  Replace the placeholder content in `FingerprintCapture.jsx` with the actual integration code from your SDK. This will involve triggering a scan and getting the fingerprint template data (often a Base64 string).
-3.  The component will then submit this data to the `storeFingerprint` method. The current code saves the raw template to the `fingerprint_template` column, which you can adjust as needed based on your SDK's requirements.
-4.  For verification, you will need to implement a matching algorithm, which is also typically provided by the hardware's SDK.
+### 1. Creating an API Token
+1.  Log in to your account.
+2.  Click on your name in the top-right corner to go to your Profile page.
+3.  Under the "Create API Token" section, give your token a descriptive name (e.g., "Health System integration").
+4.  Click "Create".
+5.  Your new API token will be displayed. **Copy this token immediately.** You will not be able to see it again for security reasons.
+
+### 2. Authenticating Requests
+To make an authenticated request to the API, you must include an `Authorization` header with your API token (as a Bearer token).
+
+```
+Authorization: Bearer <YOUR_API_TOKEN>
+```
+
+### 3. Available Endpoints
+
+#### Get a Specific Citizen
+- **Endpoint:** `GET /api/v1/citizens/{id}`
+- **Description:** Retrieves the data for a single citizen by their ID.
+- **Example Request (using curl):**
+  ```bash
+  curl -X GET http://localhost:8000/api/v1/citizens/1 \
+  -H "Authorization: Bearer <YOUR_API_TOKEN>" \
+  -H "Accept: application/json"
+  ```

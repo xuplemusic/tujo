@@ -2,7 +2,6 @@ import React from 'react';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
 import { Head } from '@inertiajs/react';
 import FaceCapture from '@/Components/FaceCapture';
-import FingerprintCapture from '@/Components/FingerprintCapture';
 
 export default function Show({ auth, citizen }) {
     return (
@@ -39,21 +38,13 @@ export default function Show({ auth, citizen }) {
                     {/* Verification Components Card */}
                     <div className="bg-white overflow-hidden shadow-sm sm:rounded-lg">
                         <div className="p-6 bg-white border-b border-gray-200">
-                            <h3 className="text-xl font-bold mb-4">Biometric Verification</h3>
+                            <h3 className="text-xl font-bold mb-4">Face Verification</h3>
 
-                            {/* Face Capture Component */}
                             <div className="mb-6">
-                                <h4 className="font-semibold text-lg mb-2">Face Capture</h4>
+                                <p className="text-sm text-gray-600 mb-4">
+                                    Use the component below to capture and verify the citizen's face using the Clarifai API.
+                                </p>
                                 <FaceCapture citizen={citizen} />
-                            </div>
-
-                            {/* Divider */}
-                            <hr className="my-6" />
-
-                            {/* Fingerprint Capture Component */}
-                            <div>
-                                <h4 className="font-semibold text-lg mb-2">Fingerprint Capture</h4>
-                                <FingerprintCapture citizen={citizen} />
                             </div>
                         </div>
                     </div>

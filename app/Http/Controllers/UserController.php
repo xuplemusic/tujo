@@ -96,4 +96,15 @@ class UserController extends Controller
         $user->delete();
         return redirect()->route('users.index')->with('success', 'User deleted successfully.');
     }
+
+    /**
+     * Show the user's profile page for managing API tokens.
+     */
+    public function profile(Request $request)
+    {
+        $tokens = $request->user()->tokens;
+        return Inertia::render('User/Profile', [
+            'tokens' => $tokens,
+        ]);
+    }
 }
